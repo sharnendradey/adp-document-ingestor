@@ -9,7 +9,10 @@ from app.config import settings
 from app.api.routes import router as main_router
 from app.api.extraction_routes import router as extraction_router
 from app.api.spanner_routes import router as spanner_router
+from app.ingestion.routes import router as ingestion_router
+from app.search.routes import router as search_router
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 import os
 
 # Logging Configuration
@@ -51,11 +54,22 @@ app.add_middleware(
 app.include_router(main_router)
 app.include_router(extraction_router)
 app.include_router(spanner_router)
+app.include_router(ingestion_router)
+app.include_router(search_router)
+
+# Mount React UI static assets if built
+ui_dist_dir = os.path.join(os.path.dirname(__file__), "..", "ui", "dist")
+ui_assets_dir = os.path.join(ui_dist_dir, "assets")
+if os.path.exists(ui_assets_dir):
+    app.mount("/assets", StaticFiles(directory=ui_assets_dir), name="ui_assets")
 
 
 @app.get("/", include_in_schema=False)
 def serve_web_ui():
-    """Serves the ADP Questa Enterprise Web Explorer and Ingestion UI."""
+    """Serves the ADP Questa Client Experience UI (React SPA or fallback)."""
+    react_index = os.path.join(ui_dist_dir, "index.html")
+    if os.path.exists(react_index):
+        return FileResponse(react_index)
     index_path = os.path.join(os.path.dirname(__file__), "static", "index.html")
     return FileResponse(index_path)
 

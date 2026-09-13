@@ -1,7 +1,14 @@
 """The 10-Field Sebastian Context Envelope & Agent Delivery Models."""
 
+from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
+
+
+class ConfidenceRatingEnum(str, Enum):
+    GREEN_CERTIFIED = "GREEN_CERTIFIED"
+    AMBER_PROVISIONAL = "AMBER_PROVISIONAL"
+    RED_REVIEW_NEEDED = "RED_REVIEW_NEEDED"
 
 
 class SebastianAnswerContext(BaseModel):
@@ -47,3 +54,7 @@ class AgentChatTurnResponse(BaseModel):
     context_envelope: Optional[SebastianAnswerContext] = None
     retrieved_chunk_ids: List[str] = Field(default_factory=list)
     retrieval_latency_ms: float = 0.0
+
+
+# Backward compatibility alias
+SebastianContextEnvelope = SebastianAnswerContext

@@ -238,6 +238,9 @@ class QuestaSpannerRepository:
                 logger.warning(f"Could not list documents from live Spanner ({e}). Using mock docs.")
         return list(self._mock_docs.values())[:limit]
 
+    # Alias for API routes
+    list_macro_documents = list_documents
+
     def list_knowledge_units(self, document_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         """Lists knowledge units from Spanner knowledge_units table with fallback.
         Supports filtering by document_id (including multi-version bound_document_ids).
