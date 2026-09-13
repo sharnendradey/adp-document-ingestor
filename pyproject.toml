@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adp-questa-agentic-service"
+version = "1.0.0"
+description = "Production-grade Governed Agentic Knowledge Platform for ADP Questa / Sebastian, featuring Two-Pass DSRF Metadata Extraction and Sub-5ms Runtime Entitlements."
+readme = "README.md"
+authors = [
+    { name = "Google Cloud Professional Services & ADP Architecture Team" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk>=2.6.3",
+    "google-genai>=2.17.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "python-dotenv>=1.0.0",
+    "httpx>=0.27.0",
+    "google-cloud-spanner>=3.40.0",
+    "google-cloud-storage>=2.14.0",
+    "google-cloud-documentai>=2.29.0",
+    "google-cloud-logging>=3.11.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
