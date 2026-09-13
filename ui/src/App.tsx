@@ -284,8 +284,8 @@ export const App: React.FC = () => {
         totalDocs={totalDocsCount}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+      {/* Main Content Area in Full Widescreen Landscape Mode */}
+      <main className="flex-1 px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16 py-6 w-full space-y-6 max-w-[2400px] mx-auto">
         {/* Architecture Hero Banner */}
         <div className="bg-space-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-64 h-64 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
@@ -452,7 +452,6 @@ export const App: React.FC = () => {
             onSelectDocument={(docId) => handleDocumentSelect(docId, true)}
             onRefresh={loadCatalog}
             isLoading={isCatalogLoading}
-            onOpenSearch={() => setIsSearchOpen(true)}
           />
         )}
 
@@ -508,20 +507,7 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* Floating Action Button (FAB) on Bottom Right */}
-      <button
-        onClick={() => setIsSearchOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center space-x-2 px-4 py-3 rounded-2xl bg-gradient-to-r from-red-600 via-adp-red to-adp-crimson hover:from-red-500 hover:to-red-700 text-white font-bold text-xs shadow-glow-red hover:shadow-2xl active:scale-95 transition-all cursor-pointer group"
-        title="Open Search & Intelligence Copilot (⌘K)"
-      >
-        <Search className="w-4 h-4 group-hover:scale-110 transition-transform" />
-        <span>Agent Intelligence Search</span>
-        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
-          ⌘K
-        </kbd>
-      </button>
-
-      {/* Expandable Search Drawer (ON THE RIGHT) */}
+      {/* Expandable Search Drawer (ON THE RIGHT - Triggered exclusively via top-right search button or ⌘K) */}
       <ExpandableSearchDrawer
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}

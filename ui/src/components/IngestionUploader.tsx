@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { UploadCloud, FolderOpen, Play, Check, AlertCircle, FileText, Sparkles, Database, Layers } from 'lucide-react';
-import { SampleDocument } from '../types/ingestion';
-import { fetchSampleDocuments } from '../api/ingestionApi';
+import React, { useState } from 'react';
+import { UploadCloud, Play, Check, AlertCircle, FileText, Sparkles, ShieldCheck, Database, Layers } from 'lucide-react';
 
 interface IngestionUploaderProps {
   onStartIngestion: (params: {
-    file?: File;
-    samplePath?: string;
+    file: File;
     filename: string;
     documentId?: string;
     version: number;
@@ -16,266 +13,194 @@ interface IngestionUploaderProps {
 
 export const IngestionUploader: React.FC<IngestionUploaderProps> = ({ onStartIngestion, isLoading }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [sampleCategories, setSampleCategories] = useState<Record<string, SampleDocument[]>>({});
-  const [selectedCategory, setSelectedCategory] = useState<string>('Client Policies');
-  const [selectedSamplePath, setSelectedSamplePath] = useState<string>('');
-  const [selectedSampleName, setSelectedSampleName] = useState<string>('');
   const [documentId, setDocumentId] = useState<string>('');
   const [version, setVersion] = useState<number>(1);
-  const [mode, setMode] = useState<'sample' | 'upload'>('sample');
+  const [isDragging, setIsDragging] = useState<boolean>(false);
 
-  useEffect(() => {
-    fetchSampleDocuments()
-      .then((data) => {
-        setSampleCategories(data.categories);
-        const policies = data.categories['Client Policies'] || [];
-        if (policies.length > 0) {
-          setSelectedSamplePath(policies[0].full_path);
-          setSelectedSampleName(policies[0].filename);
-          setDocumentId(`DOC-${policies[0].filename.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20).toUpperCase()}`);
-        }
-      })
-      .catch((err) => console.error('Failed to load sample docs:', err));
-  }, []);
+  const processFile = (file: File) => {
+    setSelectedFile(file);
+    const cleanDocId = `DOC_${file.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 32).toUpperCase()}`;
+    setDocumentId(cleanDocId);
+  };
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      setSelectedFile(file);
-      setMode('upload');
-      setDocumentId(`DOC-${file.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20).toUpperCase()}`);
+      processFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      setMode('upload');
-      setDocumentId(`DOC-${file.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20).toUpperCase()}`);
+      processFile(e.target.files[0]);
     }
-  };
-
-  const handleSampleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const fullPath = e.target.value;
-    setSelectedSamplePath(fullPath);
-    const filename = fullPath.split('/').pop() || '';
-    setSelectedSampleName(filename);
-    setDocumentId(`DOC-${filename.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20).toUpperCase()}`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === 'upload' && selectedFile) {
-      onStartIngestion({
-        file: selectedFile,
-        filename: selectedFile.name,
-        documentId: documentId || undefined,
-        version: version || 1,
-      });
-    } else if (mode === 'sample' && selectedSamplePath) {
-      onStartIngestion({
-        samplePath: selectedSamplePath,
-        filename: selectedSampleName,
-        documentId: documentId || undefined,
-        version: version || 1,
-      });
-    }
+    if (!selectedFile) return;
+
+    onStartIngestion({
+      file: selectedFile,
+      filename: selectedFile.name,
+      documentId: documentId.trim() || undefined,
+      version: version || 1,
+    });
   };
 
   return (
-    <div className="bg-space-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-2xl space-y-4">
+    <div className="bg-space-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl space-y-5">
       {/* Card Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3.5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
         <div>
-          <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <h2 className="text-xs font-bold uppercase tracking-wider text-white">
-              Document Ingestion & Revision Staging
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-red-500/30 text-adp-crimson shadow-glow-red">
+              <UploadCloud className="w-4 h-4" />
+            </div>
+            <h2 className="text-sm md:text-base font-extrabold text-white tracking-tight">
+              Custom Document Upload & Live Pipeline
             </h2>
+            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-300 border border-red-500/20">
+              GCS Auto-Staging
+            </span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-0.5">
-            Select authentic client documents (.pdf, .docx, .xlsx, .html) or upload revisions
+          <p className="text-xs text-slate-400 mt-1">
+            Drop your client document (.pdf, .docx, .xlsx, .html, .csv) — file is immediately persisted into GCS bucket staging, decomposed via Google Document AI, and indexed in Spanner.
           </p>
         </div>
 
-        {/* Mode Toggle Pills */}
-        <div className="flex bg-space-950/80 p-1 rounded-xl border border-white/5 text-xs shadow-inner self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setMode('sample')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-              mode === 'sample' 
-                ? 'bg-gradient-to-r from-red-600 to-adp-red text-white shadow-md shadow-red-600/20' 
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Client Corpus
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('upload')}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-              mode === 'upload' 
-                ? 'bg-gradient-to-r from-red-600 to-adp-red text-white shadow-md shadow-red-600/20' 
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Custom Upload
-          </button>
+        <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-xl border border-emerald-500/20 shadow-sm self-start sm:self-auto">
+          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="font-semibold text-[11px]">Real-Time Telemetry Active</span>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {mode === 'sample' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {/* Category Select */}
-            <div className="space-y-1">
-              <label className="block text-[11px] font-semibold text-slate-300">
-                Client Document Category:
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    const items = sampleCategories[e.target.value] || [];
-                    if (items.length > 0) {
-                      setSelectedSamplePath(items[0].full_path);
-                      setSelectedSampleName(items[0].filename);
-                      setDocumentId(`DOC-${items[0].filename.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20).toUpperCase()}`);
-                    }
-                  }}
-                  className="w-full bg-space-950/90 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-adp-red focus:ring-1 focus:ring-adp-red shadow-inner transition-all appearance-none cursor-pointer"
-                >
-                  {Object.keys(sampleCategories).map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat} ({sampleCategories[cat]?.length || 0} files)
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute right-3 top-3 pointer-events-none text-slate-400 text-xs">▼</div>
-              </div>
+        {/* Custom Drag & Drop Dropzone */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleFileDrop}
+          className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-200 cursor-pointer group relative overflow-hidden ${
+            isDragging
+              ? 'border-adp-red bg-red-950/20 scale-[1.005] shadow-glow-red'
+              : selectedFile
+              ? 'border-emerald-500/40 bg-space-950/80'
+              : 'border-white/10 hover:border-adp-red/50 bg-space-950/60 hover:bg-space-950/80'
+          }`}
+        >
+          <input
+            type="file"
+            id="file-upload"
+            className="hidden"
+            onChange={handleFileChange}
+            accept=".pdf,.docx,.xlsx,.xls,.html,.htm,.csv,.txt"
+          />
+          <label htmlFor="file-upload" className="cursor-pointer block">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 transition-transform duration-300 group-hover:scale-110 shadow-lg ${
+              selectedFile
+                ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-glow-emerald'
+                : 'bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-red-500/30 text-adp-crimson shadow-glow-red'
+            }`}>
+              {selectedFile ? <FileText className="w-7 h-7" /> : <UploadCloud className="w-7 h-7" />}
             </div>
 
-            {/* Target Client Document */}
-            <div className="space-y-1">
-              <label className="block text-[11px] font-semibold text-slate-300">
-                Target Client Document:
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedSamplePath}
-                  onChange={handleSampleSelect}
-                  className="w-full bg-space-950/90 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-adp-red focus:ring-1 focus:ring-adp-red shadow-inner transition-all appearance-none cursor-pointer"
-                >
-                  {(sampleCategories[selectedCategory] || []).map((doc) => (
-                    <option key={doc.full_path} value={doc.full_path}>
-                      [{doc.format}] {doc.filename} ({doc.size_display})
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute right-3 top-3 pointer-events-none text-slate-400 text-xs">▼</div>
+            {selectedFile ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-center space-x-2">
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <p className="text-sm font-bold text-white">
+                    {selectedFile.name}
+                  </p>
+                </div>
+                <p className="text-xs text-slate-400 font-mono">
+                  {(selectedFile.size / 1024).toFixed(1)} KB · Ready to stage to GCS & ingest into Spanner
+                </p>
+                <p className="text-[11px] text-adp-crimson pt-1 underline font-medium">
+                  Click or drag to replace document
+                </p>
               </div>
+            ) : (
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">
+                  Click to choose a file or drag and drop here
+                </p>
+                <p className="text-xs text-slate-400 max-w-xl mx-auto leading-relaxed">
+                  Supports authentic enterprise formats: <strong>PDF, DOCX, XLSX, HTML, CSV</strong>. The file will be kept in Google Cloud Storage staging before pipeline execution.
+                </p>
+              </div>
+            )}
+          </label>
+        </div>
+
+        {/* Auto-Generated Metadata & Revision Version */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-space-950/60 p-4 rounded-xl border border-white/5 text-xs shadow-inner">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400">
+              <Database className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Document ID:
+                </span>
+                <span className="font-mono text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  {selectedFile ? `DOC_${selectedFile.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 24).toUpperCase()}` : 'Auto-generated on upload'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Primary key deterministically bound via SHA-256 layout hash & Gemini DSRF taxonomy
+              </p>
             </div>
           </div>
-        ) : (
-          /* Custom Drag & Drop Dropzone */
-          <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleFileDrop}
-            className="border-2 border-dashed border-white/10 hover:border-adp-red/60 bg-space-950/60 rounded-2xl p-7 text-center transition-all cursor-pointer group hover:bg-space-950/80"
-          >
-            <input
-              type="file"
-              id="file-upload"
-              className="hidden"
-              onChange={handleFileChange}
-              accept=".pdf,.docx,.xlsx,.xls,.html,.htm,.csv,.txt"
-            />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-adp-crimson flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform shadow-glow-red">
-                <UploadCloud className="w-6 h-6" />
-              </div>
 
-              {selectedFile ? (
-                <div className="space-y-1">
-                  <p className="text-xs font-bold text-emerald-400">
-                    Selected: {selectedFile.name}
-                  </p>
-                  <p className="text-[11px] text-slate-400 font-mono">
-                    Size: {(selectedFile.size / 1024).toFixed(1)} KB · Ready to ingest
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-slate-200">
-                    Click to select or drag and drop document file
-                  </p>
-                  <p className="text-[11px] text-slate-400">
-                    Supports .pdf, .docx, .xlsx, .html, .csv (Processed via Google Cloud Document AI & Layout Extractors)
-                  </p>
-                </div>
-              )}
+          <div className="flex items-center space-x-2.5 self-start sm:self-auto shrink-0">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Revision:
             </label>
-          </div>
-        )}
-
-        {/* Parameters: Document ID & Revision Version */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-space-950/60 p-3.5 rounded-xl border border-white/5 text-xs shadow-inner">
-          <div className="sm:col-span-2 space-y-1">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Document ID (Catalog Primary Key):
-            </label>
-            <input
-              type="text"
-              value={documentId}
-              onChange={(e) => setDocumentId(e.target.value)}
-              placeholder="e.g. DOC-ADP-TRAVEL-POLICY-V1"
-              className="w-full bg-space-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-adp-red focus:ring-1 focus:ring-adp-red transition-all"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Revision Version:
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="99"
-              value={version}
-              onChange={(e) => setVersion(parseInt(e.target.value) || 1)}
-              className="w-full bg-space-900 border border-white/10 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-adp-red focus:ring-1 focus:ring-adp-red transition-all"
-            />
+            <div className="flex items-center bg-space-900 border border-white/10 rounded-lg px-2.5 py-1">
+              <span className="text-slate-400 font-mono text-xs mr-1">v</span>
+              <input
+                type="number"
+                min="1"
+                max="99"
+                value={version}
+                onChange={(e) => setVersion(parseInt(e.target.value) || 1)}
+                className="w-10 bg-transparent text-xs text-white font-mono font-bold focus:outline-none text-center"
+                title="Revision version for deduplication tracking"
+              />
+            </div>
           </div>
         </div>
 
         {/* CTA Footer */}
-        <div className="flex items-center justify-between pt-1">
-          <div className="text-[11px] text-slate-400 flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+          <div className="text-xs text-slate-400 flex items-center space-x-2">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            <span>GCS Canonical Storage & Spanner Deduplication Active</span>
+            <span>Target Bucket: <code className="text-cyan-400 font-mono text-[11px]">gs://adp-questa-document-ingest-poc/staging_uploads/</code></span>
           </div>
 
           <button
             type="submit"
-            disabled={isLoading || (mode === 'upload' && !selectedFile) || (mode === 'sample' && !selectedSamplePath)}
-            className="flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-red-600 via-adp-red to-adp-dark hover:from-red-500 hover:to-red-700 text-white font-bold text-xs shadow-glow-red hover:shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all transform active:scale-95 cursor-pointer"
+            disabled={isLoading || !selectedFile}
+            className="flex items-center justify-center space-x-2.5 px-6 py-3 rounded-xl bg-gradient-to-r from-red-600 via-adp-red to-adp-dark hover:from-red-500 hover:to-red-700 text-white font-bold text-xs shadow-glow-red hover:shadow-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all transform active:scale-95 cursor-pointer"
           >
             {isLoading ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Ingesting Through Pipeline...</span>
+                <span>Ingesting Through Governed Pipeline...</span>
               </>
             ) : (
               <>
                 <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Execute Governed Ingestion</span>
+                <span>Upload to GCS & Start Live Ingestion</span>
               </>
             )}
           </button>

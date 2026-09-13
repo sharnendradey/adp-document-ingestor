@@ -28,7 +28,6 @@ interface UploadedDocumentsLibraryProps {
   onSelectDocument: (docId: string) => void;
   onRefresh: () => void;
   isLoading?: boolean;
-  onOpenSearch?: () => void;
 }
 
 const DOMAIN_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -47,7 +46,6 @@ export const UploadedDocumentsLibrary: React.FC<UploadedDocumentsLibraryProps> =
   onSelectDocument,
   onRefresh,
   isLoading = false,
-  onOpenSearch,
 }) => {
   const [selectedDomain, setSelectedDomain] = useState<string>('ALL');
   const [selectedBu, setSelectedBu] = useState<string>('ALL');
@@ -126,21 +124,10 @@ export const UploadedDocumentsLibrary: React.FC<UploadedDocumentsLibraryProps> =
 
           {/* Action buttons */}
           <div className="flex items-center space-x-2.5 shrink-0 self-start md:self-auto">
-            {onOpenSearch && (
-              <button
-                onClick={onOpenSearch}
-                className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-space-950/80 hover:bg-space-800 border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-inner cursor-pointer"
-                title="Search knowledge base via Agent Search Drawer"
-              >
-                <Search className="w-3.5 h-3.5 text-red-400" />
-                <span>Agent Search (⌘K)</span>
-              </button>
-            )}
-
             <button
               onClick={onRefresh}
               disabled={isLoading}
-              className="flex items-center space-x-2 px-3 py-2 rounded-xl bg-space-950/80 hover:bg-space-800 border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-inner disabled:opacity-50 cursor-pointer"
+              className="flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-space-950/80 hover:bg-space-800 border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-all shadow-inner disabled:opacity-50 cursor-pointer"
               title="Refresh catalog from Cloud Spanner"
             >
               <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${isLoading ? 'animate-spin' : ''}`} />
@@ -267,8 +254,8 @@ export const UploadedDocumentsLibrary: React.FC<UploadedDocumentsLibraryProps> =
           </button>
         </div>
       ) : viewMode === 'grid' ? (
-        /* GRID VIEW */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        /* WIDESCREEN LANDSCAPE GRID VIEW */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 3xl:grid-cols-5 gap-5">
           {filteredDocuments.map((doc) => {
             const isSelected = selectedDocId === doc.document_id;
             const domainStyle = DOMAIN_COLORS[doc.canonical_dsrf_domain || ''] || {
