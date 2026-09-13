@@ -12,6 +12,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.ingestion.pipeline import ingestion_pipeline
+from app.ingestion.gcs_storage import gcs_storage_service
 from app.services.spanner_service import spanner_service
 
 logger = logging.getLogger("adp-questa.ingestion.routes")
@@ -185,6 +186,13 @@ def get_document_details(document_id: str) -> Dict[str, Any]:
     if not doc:
         raise HTTPException(status_code=404, detail=f"Document {document_id} not found in parent table")
 
+    # Ensure canonical GCS URI is populated
+    if not doc.get("gcs_uri"):
+        clean_bu = str(doc.get("business_unit", "MAJOR_ACCOUNTS")).upper().replace(" ", "_")
+        clean_domain = str(doc.get("canonical_dsrf_domain", "TALENT_AND_HR")).upper().replace(" ", "_")
+        clean_product = str(doc.get("product_module", "GENERAL")).upper().replace(" ", "_")
+        doc["gcs_uri"] = f"gs://{gcs_storage_service.bucket_name}/documents/{clean_bu}/{clean_domain}/{clean_product}/{document_id}/v1/{document_id}.pdf"
+
     units = spanner_service.list_knowledge_units(document_id=document_id, limit=200)
 
     return {
@@ -192,3 +200,4 @@ def get_document_details(document_id: str) -> Dict[str, Any]:
         "total_units": len(units),
         "knowledge_units": units
     }
+
