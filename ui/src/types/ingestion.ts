@@ -86,4 +86,6 @@ export interface ParentDocument {
   raw_content_sha256?: string;
   gcs_uri?: string;
   created_at?: string;
+  chunk_count?: number;
 }
+

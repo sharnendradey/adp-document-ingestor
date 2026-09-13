@@ -203,12 +203,13 @@ class QuestaSpannerRepository:
             try:
                 with self.database.snapshot() as snapshot:
                     sql = """
-                        SELECT document_id, document_title, content_owner_steward, product_module, 
-                               business_unit, canonical_dsrf_domain, domain_path, tenant_boundary, 
-                               data_plane, document_summary, table_of_contents, search_keywords, 
-                               raw_content_sha256, created_at
-                        FROM knowledge_documents 
-                        ORDER BY created_at DESC 
+                        SELECT d.document_id, d.document_title, d.content_owner_steward, d.product_module, 
+                               d.business_unit, d.canonical_dsrf_domain, d.domain_path, d.tenant_boundary, 
+                               d.data_plane, d.document_summary, d.table_of_contents, d.search_keywords, 
+                               d.raw_content_sha256, d.created_at,
+                               (SELECT COUNT(*) FROM knowledge_units u WHERE u.document_id = d.document_id) AS chunk_count
+                        FROM knowledge_documents d
+                        ORDER BY d.created_at DESC 
                         LIMIT @limit
                     """
                     rows = snapshot.execute_sql(
@@ -217,9 +218,15 @@ class QuestaSpannerRepository:
                         param_types={"limit": spanner.param_types.INT64}
                     )
                     for r in rows:
+                        doc_id = r[0]
+                        bu = str(r[4] or "MAJOR_ACCOUNTS").upper().replace(" ", "_")
+                        domain = str(r[5] or "TALENT_AND_HR").upper().replace(" ", "_")
+                        prod = str(r[3] or "GENERAL").upper().replace(" ", "_")
+                        gcs_path = f"gs://adp-questa-document-ingest-poc/documents/{bu}/{domain}/{prod}/{doc_id}/v1/{doc_id}.pdf"
+
                         docs.append({
-                            "document_id": r[0],
-                            "document_title": r[1],
+                            "document_id": doc_id,
+                            "document_title": r[1] or doc_id,
                             "content_owner_steward": r[2],
                             "product_module": r[3],
                             "business_unit": r[4],
@@ -231,15 +238,19 @@ class QuestaSpannerRepository:
                             "table_of_contents": list(r[10]) if r[10] else [],
                             "search_keywords": list(r[11]) if r[11] else [],
                             "raw_content_sha256": r[12],
-                            "created_at": str(r[13]) if r[13] else None
+                            "created_at": str(r[13]) if r[13] else None,
+                            "chunk_count": int(r[14]) if len(r) > 14 and r[14] is not None else 0,
+                            "gcs_uri": gcs_path
                         })
                 return docs
             except Exception as e:
                 logger.warning(f"Could not list documents from live Spanner ({e}). Using mock docs.")
         return list(self._mock_docs.values())[:limit]
 
+
     # Alias for API routes
     list_macro_documents = list_documents
+
 
     def list_knowledge_units(self, document_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
         """Lists knowledge units from Spanner knowledge_units table with fallback.

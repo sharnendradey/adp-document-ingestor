@@ -75,3 +75,13 @@ export async function fetchDocumentDetails(documentId: string): Promise<{
   if (!res.ok) throw new Error(`Failed to fetch document ${documentId}`);
   return res.json();
 }
+
+export async function fetchCatalogDocuments(limit: number = 100): Promise<{
+  total: number;
+  documents: ParentDocument[];
+}> {
+  const res = await fetch(`/api/v1/search/documents?limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to fetch catalog documents');
+  return res.json();
+}
+

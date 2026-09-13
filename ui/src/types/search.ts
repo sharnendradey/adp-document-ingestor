@@ -19,7 +19,7 @@ export interface ContributingChunk {
   tabular_keys_count: number;
 }
 
-export interface SebastianResponse {
+export interface AgentSynthesizedResponse {
   answer: string;
   confidence_score: number;
   confidence_display: string;
@@ -32,12 +32,14 @@ export interface SebastianResponse {
   contributing_chunks: ContributingChunk[];
 }
 
+export type SebastianResponse = AgentSynthesizedResponse;
+
 export interface SearchResult {
   query: string;
   user_role: string;
   latency_ms: number;
   intent: QueryIntent;
-  response: SebastianResponse;
+  response: AgentSynthesizedResponse;
   circuit_breaker: {
     escalated: boolean;
     reason?: string;

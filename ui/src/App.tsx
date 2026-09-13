@@ -5,15 +5,29 @@ import { IngestionTerminal, TerminalLogLine } from './components/IngestionTermin
 import { IngestionUploader } from './components/IngestionUploader';
 import { DocumentMetadataCard } from './components/DocumentMetadataCard';
 import { TriViewKnowledgeUnit } from './components/TriViewKnowledgeUnit';
+import { UploadedDocumentsLibrary } from './components/UploadedDocumentsLibrary';
 import { ExpandableSearchDrawer } from './components/ExpandableSearchDrawer';
 import { 
   uploadDocumentFile, 
   triggerIngestionProcess, 
   subscribeIngestionTelemetry, 
-  fetchDocumentDetails 
+  fetchDocumentDetails,
+  fetchCatalogDocuments
 } from './api/ingestionApi';
 import { IngestionEvent, ParentDocument, KnowledgeUnit } from './types/ingestion';
-import { Sparkles, Layers, Database, RefreshCw, Search, ShieldCheck, Zap } from 'lucide-react';
+import { 
+  Sparkles, 
+  Layers, 
+  Database, 
+  RefreshCw, 
+  Search, 
+  ShieldCheck, 
+  Zap, 
+  FileUp, 
+  Library, 
+  ArrowLeft,
+  CheckCircle2
+} from 'lucide-react';
 
 const INITIAL_STAGES: WorkflowStageState[] = [
   {
@@ -48,7 +62,10 @@ const INITIAL_STAGES: WorkflowStageState[] = [
   },
 ];
 
+type ActiveTab = 'ingest' | 'library' | 'inspector';
+
 export const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('ingest');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [stages, setStages] = useState<WorkflowStageState[]>(INITIAL_STAGES);
   const [logs, setLogs] = useState<TerminalLogLine[]>([]);
@@ -59,9 +76,10 @@ export const App: React.FC = () => {
   const [currentDocument, setCurrentDocument] = useState<ParentDocument | null>(null);
   const [knowledgeUnits, setKnowledgeUnits] = useState<KnowledgeUnit[]>([]);
   const [metrics, setMetrics] = useState<any>(null);
-  const [totalDocsCount, setTotalDocsCount] = useState<number>(23);
+  const [totalDocsCount, setTotalDocsCount] = useState<number>(24);
   const [availableDocs, setAvailableDocs] = useState<ParentDocument[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>('');
+  const [isCatalogLoading, setIsCatalogLoading] = useState<boolean>(false);
 
   // Keyboard shortcut for Cmd+K / Ctrl+K
   useEffect(() => {
@@ -80,21 +98,21 @@ export const App: React.FC = () => {
 
   // Fetch catalog documents on mount
   const loadCatalog = useCallback(async () => {
+    setIsCatalogLoading(true);
     try {
-      const res = await fetch('/api/v1/search/documents?limit=50');
-      if (res.ok) {
-        const data = await res.json();
-        setAvailableDocs(data.documents || []);
-        setTotalDocsCount(data.total || 23);
+      const data = await fetchCatalogDocuments(100);
+      setAvailableDocs(data.documents || []);
+      setTotalDocsCount(data.total || 24);
 
-        if (!currentDocument && data.documents && data.documents.length > 0) {
-          const firstDocId = data.documents[0].document_id;
-          setSelectedDocId(firstDocId);
-          loadDocumentDetails(firstDocId);
-        }
+      if (!currentDocument && data.documents && data.documents.length > 0) {
+        const firstDocId = data.documents[0].document_id;
+        setSelectedDocId(firstDocId);
+        loadDocumentDetails(firstDocId);
       }
     } catch (err) {
       console.warn('Could not load catalog documents on mount:', err);
+    } finally {
+      setIsCatalogLoading(false);
     }
   }, [currentDocument]);
 
@@ -112,9 +130,12 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleDocumentSelect = (docId: string) => {
+  const handleDocumentSelect = (docId: string, switchTab: boolean = true) => {
     setSelectedDocId(docId);
     loadDocumentDetails(docId);
+    if (switchTab) {
+      setActiveTab('inspector');
+    }
   };
 
   // Start Ingestion Pipeline
@@ -126,6 +147,7 @@ export const App: React.FC = () => {
     version: number;
   }) => {
     setIsStreaming(true);
+    setActiveTab('ingest');
     setStages(INITIAL_STAGES.map((s) => ({ ...s, status: 'idle', metric: undefined })));
     setLogs([
       {
@@ -272,15 +294,16 @@ export const App: React.FC = () => {
             </p>
           </div>
 
-          {/* Active Catalog Document Switcher */}
+          {/* Top Quick Actions */}
           <div className="flex items-center space-x-3 shrink-0 relative z-10">
             {availableDocs.length > 0 && (
               <div className="flex items-center space-x-2 bg-space-950/90 px-3 py-2 rounded-xl border border-white/10 shadow-inner">
                 <Database className="w-3.5 h-3.5 text-blue-400" />
                 <select
                   value={selectedDocId}
-                  onChange={(e) => handleDocumentSelect(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-slate-200 focus:outline-none cursor-pointer max-w-[240px] truncate"
+                  onChange={(e) => handleDocumentSelect(e.target.value, false)}
+                  className="bg-transparent text-xs font-semibold text-slate-200 focus:outline-none cursor-pointer max-w-[200px] truncate"
+                  title="Quick-switch active catalog document"
                 >
                   {availableDocs.map((doc) => (
                     <option key={doc.document_id} value={doc.document_id} className="bg-space-950 text-slate-200">
@@ -293,45 +316,169 @@ export const App: React.FC = () => {
 
             <button
               onClick={loadCatalog}
-              className="p-2.5 rounded-xl bg-space-950/90 hover:bg-space-800 border border-white/10 text-slate-400 hover:text-white transition-all shadow-inner"
+              disabled={isCatalogLoading}
+              className="p-2.5 rounded-xl bg-space-950/90 hover:bg-space-800 border border-white/10 text-slate-400 hover:text-white transition-all shadow-inner cursor-pointer"
               title="Refresh catalog from Cloud Spanner"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className={`w-4 h-4 ${isCatalogLoading ? 'animate-spin text-blue-400' : ''}`} />
             </button>
           </div>
         </div>
 
-        {/* Section 1: Ingestion Uploader */}
-        <IngestionUploader
-          onStartIngestion={handleStartIngestion}
-          isLoading={isStreaming}
-        />
+        {/* Segmented Top View Navigation Tabs */}
+        <div className="flex items-center justify-between border-b border-white/10 pb-2">
+          <div className="flex items-center space-x-2">
+            {/* Tab 1: Ingestion & Live Pipeline */}
+            <button
+              onClick={() => setActiveTab('ingest')}
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                activeTab === 'ingest'
+                  ? 'bg-gradient-to-r from-red-600 to-adp-red text-white shadow-glow-red border border-red-500/40'
+                  : 'bg-space-900/80 text-slate-400 hover:text-slate-200 border border-white/5 hover:border-white/10'
+              }`}
+            >
+              <FileUp className="w-4 h-4" />
+              <span>Document Upload & Live Pipeline</span>
+              {isStreaming && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
+              )}
+            </button>
 
-        {/* Section 2: Architecture Workflow Stepper */}
-        <WorkflowStepper stages={stages} />
-
-        {/* Section 3: Live SSE Telemetry Terminal */}
-        <IngestionTerminal
-          logs={logs}
-          isStreaming={isStreaming}
-          onClear={() => setLogs([])}
-        />
-
-        {/* Section 4: Post-Ingestion Document & Knowledge Unit Inspector */}
-        {currentDocument && (
-          <div className="space-y-6 pt-4 border-t border-white/10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <div className="p-1.5 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400">
-                  <Layers className="w-4 h-4" />
-                </div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-white">
-                  Governed Document & Child Knowledge Unit Details
-                </h3>
-              </div>
-              <span className="text-xs text-slate-500 font-mono">
-                Catalog ID: <strong className="text-slate-300">{currentDocument.document_id}</strong>
+            {/* Tab 2: Uploaded Documents Library */}
+            <button
+              onClick={() => setActiveTab('library')}
+              className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                activeTab === 'library'
+                  ? 'bg-gradient-to-r from-red-600 to-adp-red text-white shadow-glow-red border border-red-500/40'
+                  : 'bg-space-900/80 text-slate-400 hover:text-slate-200 border border-white/5 hover:border-white/10'
+              }`}
+            >
+              <Library className="w-4 h-4" />
+              <span>Uploaded Documents Library</span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-slate-300 border border-white/10">
+                {totalDocsCount}
               </span>
+            </button>
+
+            {/* Tab 3: Document & Knowledge Unit Inspector */}
+            {currentDocument && (
+              <button
+                onClick={() => setActiveTab('inspector')}
+                className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                  activeTab === 'inspector'
+                    ? 'bg-gradient-to-r from-red-600 to-adp-red text-white shadow-glow-red border border-red-500/40'
+                    : 'bg-space-900/80 text-slate-400 hover:text-slate-200 border border-white/5 hover:border-white/10'
+                }`}
+              >
+                <Layers className="w-4 h-4 text-purple-400" />
+                <span className="max-w-[200px] truncate">
+                  Inspect: {currentDocument.document_title || currentDocument.document_id}
+                </span>
+              </button>
+            )}
+          </div>
+
+          {/* Quick Notice */}
+          <div className="hidden md:flex items-center space-x-1.5 text-[11px] text-slate-400">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Spanner ABAC Enforcement Active</span>
+          </div>
+        </div>
+
+        {/* TAB 1: DOCUMENT INGESTION & LIVE PIPELINE */}
+        {activeTab === 'ingest' && (
+          <div className="space-y-6">
+            {/* Document Upload & Client Sample Picker */}
+            <IngestionUploader
+              onStartIngestion={handleStartIngestion}
+              isLoading={isStreaming}
+            />
+
+            {/* 5-Stage Visual Workflow Architecture Progress */}
+            <WorkflowStepper stages={stages} />
+
+            {/* Live SSE Telemetry Terminal */}
+            <IngestionTerminal
+              logs={logs}
+              isStreaming={isStreaming}
+              onClear={() => setLogs([])}
+            />
+
+            {/* If a document is loaded, show quick inspector access banner */}
+            {currentDocument && (
+              <div className="bg-space-900/70 p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 shadow-xl">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white">
+                      Active Document: {currentDocument.document_title || currentDocument.document_id}
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      {knowledgeUnits.length} child knowledge units indexed in Cloud Spanner child table
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setActiveTab('inspector')}
+                  className="px-4 py-2 rounded-xl bg-space-950 hover:bg-space-800 text-slate-200 hover:text-white border border-white/10 text-xs font-bold transition-all shadow-inner cursor-pointer"
+                >
+                  View Full Metadata & Chunks →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: UPLOADED DOCUMENTS LIBRARY (FULL SPANNER CATALOG) */}
+        {activeTab === 'library' && (
+          <UploadedDocumentsLibrary
+            documents={availableDocs}
+            selectedDocId={selectedDocId}
+            onSelectDocument={(docId) => handleDocumentSelect(docId, true)}
+            onRefresh={loadCatalog}
+            isLoading={isCatalogLoading}
+            onOpenSearch={() => setIsSearchOpen(true)}
+          />
+        )}
+
+        {/* TAB 3: POST-INGESTION DOCUMENT & KNOWLEDGE UNIT INSPECTOR */}
+        {activeTab === 'inspector' && currentDocument && (
+          <div className="space-y-6">
+            {/* Inspector Navigation Breadcrumb */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-space-950/70 px-4 py-3 rounded-xl border border-white/5">
+              <div className="flex items-center space-x-2.5">
+                <button
+                  onClick={() => setActiveTab('library')}
+                  className="flex items-center space-x-1 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Library</span>
+                </button>
+                <span className="text-slate-600">|</span>
+                <span className="text-xs font-bold text-white">
+                  Inspecting: <span className="text-slate-300 font-mono">{currentDocument.document_id}</span>
+                </span>
+              </div>
+
+              {availableDocs.length > 0 && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-[11px] text-slate-500">Switch Document:</span>
+                  <select
+                    value={selectedDocId}
+                    onChange={(e) => handleDocumentSelect(e.target.value, false)}
+                    className="bg-space-900 border border-white/10 text-xs text-slate-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer max-w-[220px] truncate"
+                  >
+                    {availableDocs.map((doc) => (
+                      <option key={doc.document_id} value={doc.document_id}>
+                        {doc.document_title || doc.document_id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Macro Document Metadata Card */}
@@ -340,7 +487,7 @@ export const App: React.FC = () => {
               metrics={metrics}
             />
 
-            {/* Tri-View Knowledge Units */}
+            {/* Tri-View Knowledge Units with FAQ Questions per Chunk & Runtime Metadata */}
             <TriViewKnowledgeUnit
               units={knowledgeUnits}
               documentId={currentDocument.document_id}

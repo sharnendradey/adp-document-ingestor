@@ -116,7 +116,7 @@ export const ExpandableSearchDrawer: React.FC<ExpandableSearchDrawerProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                ABAC-governed vector retrieval & Sebastian Synthesizer
+                ABAC-governed Cloud Spanner vector retrieval & Agent Synthesizer
               </p>
             </div>
           </div>

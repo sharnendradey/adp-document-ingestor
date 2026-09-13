@@ -23,3 +23,7 @@ node_modules/
 # Operating system
 .DS_Store
 Thumbs.db
+
+# Data and uploads
+data/
+
