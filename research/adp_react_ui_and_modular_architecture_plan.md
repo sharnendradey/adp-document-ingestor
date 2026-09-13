@@ -10,7 +10,7 @@ Yes, this is **100% possible, technically sound, and highly recommended** for cl
 
 Currently, the backend operational capabilities—Google Cloud Document AI Layout Parsing, Spanner Two-Table separation, Tri-View Knowledge Unit synthesis, and Sub-5ms Entitled ScaNN retrieval—are fully functioning on live GCP infrastructure, but they lack the visual polish and interactivity expected by executive client stakeholders.
 
-Following the design system and modular UX pattern from your [`multimodal-video-intelligence-engine`](file:///Users/sharnendradey/Documents/zee5-engagement-docs/multimodal-video-intelligence-engine), we will build a dedicated, client-facing **React + Vite + TailwindCSS application** in `sample-agent/ui` paired with cleanly separated, decoupled backend domains in `sample-agent/app/ingestion` and `sample-agent/app/search`.
+Following the modern enterprise design system and modular UX patterns, we will build a dedicated, client-facing **React + Vite + TailwindCSS application** in `sample-agent/ui` paired with cleanly separated, decoupled backend domains in `sample-agent/app/ingestion` and `sample-agent/app/search`.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐

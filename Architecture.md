@@ -267,7 +267,7 @@ flowchart TD
 
 ## 8. Model Roster & Configuration
 
-To match the production-tested stack from `zee5-adk-agentic-service` and `multimodal-video-intelligence-engine`, the models are configured as follows:
+To match the production-tested enterprise Google Cloud ADK agentic stack, the models are configured as follows:
 
 | Setting Parameter | Active Model Identifier | Purpose in Questa Platform |
 | :--- | :--- | :--- |
