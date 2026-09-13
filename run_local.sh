@@ -47,6 +47,14 @@ export PYTHONPATH="."
 export PORT="${PORT:-8080}"
 export HOST="${HOST:-0.0.0.0}"
 
+# 4. Clean up any existing stale process holding the port
+EXISTING_PID=$(lsof -ti :"$PORT" 2>/dev/null || true)
+if [ -n "$EXISTING_PID" ]; then
+    echo "⚡ Port $PORT is already in use by PID $EXISTING_PID. Gracefully recycling..."
+    kill -9 $EXISTING_PID 2>/dev/null || true
+    sleep 1
+fi
+
 echo "✔ GCP Project: $GCP_PROJECT_ID"
 echo "✔ Cloud Spanner: adp-test-spanner / adp_governed_knowledge"
 echo "✔ GCS Storage Bucket: adp-questa-document-ingest-poc"
@@ -58,5 +66,5 @@ echo "   👉 Swagger API Docs:     http://localhost:${PORT}/docs"
 echo "   👉 Health Diagnostics:   http://localhost:${PORT}/health"
 echo "==================================================================="
 
-# 4. Launch FastAPI Uvicorn Server
+# 5. Launch FastAPI Uvicorn Server
 exec "$UVICORN_BIN" app.main:app --host "$HOST" --port "$PORT" --reload

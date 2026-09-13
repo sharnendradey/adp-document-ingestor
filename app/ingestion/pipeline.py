@@ -73,14 +73,14 @@ class GovernedIngestionPipeline:
         if os.path.exists(file_path_or_content):
             with open(file_path_or_content, "rb") as f:
                 file_bytes = f.read()
-            layout_result = document_ai_tool.parse_file(file_path_or_content)
+            layout_result = await asyncio.to_thread(document_ai_tool.parse_file, file_path_or_content)
         elif os.path.exists(filename):
             with open(filename, "rb") as f:
                 file_bytes = f.read()
-            layout_result = document_ai_tool.parse_file(filename)
+            layout_result = await asyncio.to_thread(document_ai_tool.parse_file, filename)
         else:
             file_bytes = file_path_or_content.encode("utf-8")
-            layout_result = document_ai_tool.parse_document(file_path_or_content, filename)
+            layout_result = await asyncio.to_thread(document_ai_tool.parse_document, file_path_or_content, filename)
 
         blocks = layout_result.get("layout_tree", [])
         toc = layout_result.get("table_of_contents", ["Overview"])
@@ -106,7 +106,8 @@ class GovernedIngestionPipeline:
             "message": "Extracting macro DSRF taxonomy, domain path, and document summary via Gemini..."
         })
 
-        macro_doc = gemini_extraction_tool.extract_macro_document(
+        macro_doc = await asyncio.to_thread(
+            gemini_extraction_tool.extract_macro_document,
             document_id=document_id or layout_result.get("document_hash", ""),
             content=raw_preview,
             source_system_id=source_system_id,
@@ -138,7 +139,8 @@ class GovernedIngestionPipeline:
             "message": f"Archiving original document to gs://{gcs_storage_service.bucket_name}..."
         })
 
-        gcs_res = gcs_storage_service.upload_document(
+        gcs_res = await asyncio.to_thread(
+            gcs_storage_service.upload_document,
             file_bytes=file_bytes or b"",
             filename=filename,
             document_id=resolved_doc_id,
@@ -169,7 +171,8 @@ class GovernedIngestionPipeline:
             "message": "Persisting document entity to knowledge_documents with STRICTLY ZERO VECTOR EMBEDDINGS..."
         })
 
-        spanner_service.insert_macro_document(macro_doc)
+        await asyncio.to_thread(spanner_service.insert_macro_document, macro_doc)
+
         await self.emit_event(job_id, "log", {
             "level": "INFO",
             "stage_id": "spanner_parent",
@@ -189,7 +192,9 @@ class GovernedIngestionPipeline:
             "message": "Checking syntactic SHA-256 hashes against live Spanner knowledge units..."
         })
 
-        deduplicated_chunk_ids, new_blocks = deduplication_manager.partition_blocks(blocks, resolved_doc_id)
+        deduplicated_chunk_ids, new_blocks = await asyncio.to_thread(
+            deduplication_manager.partition_blocks, blocks, resolved_doc_id
+        )
 
         await self.emit_event(job_id, "log", {
             "level": "INFO",
@@ -216,10 +221,11 @@ class GovernedIngestionPipeline:
             })
 
             new_texts = [b["text"] for _, b in new_blocks]
-            chunk_vectors = embedding_service.generate_embeddings_batch(new_texts)
+            chunk_vectors = await asyncio.to_thread(embedding_service.generate_embeddings_batch, new_texts)
 
             for i, (idx, block) in enumerate(new_blocks):
-                chunk_payload = gemini_extraction_tool.extract_chunk_payload(
+                chunk_payload = await asyncio.to_thread(
+                    gemini_extraction_tool.extract_chunk_payload,
                     document_id=resolved_doc_id,
                     chunk_index=idx,
                     chunk_text=block["text"],
@@ -255,7 +261,8 @@ class GovernedIngestionPipeline:
 
             # Batch persist to Spanner
             if promoted_chunks:
-                spanner_service.insert_knowledge_units(promoted_chunks)
+                await asyncio.to_thread(spanner_service.insert_knowledge_units, promoted_chunks)
+
                 await self.emit_event(job_id, "log", {
                     "level": "INFO",
                     "stage_id": "tri_view_synthesis",
