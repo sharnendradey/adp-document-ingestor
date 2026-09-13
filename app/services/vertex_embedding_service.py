@@ -23,6 +23,7 @@ class VertexEmbeddingService:
     def __init__(self):
         self.model_name = settings.EMBEDDING_MODEL_NAME
         self.client = None
+        self._auth_failed = False
         if HAS_GENAI:
             try:
                 if settings.GEMINI_API_KEY:
@@ -36,10 +37,11 @@ class VertexEmbeddingService:
                     logger.info("Initialized live Vertex AI GenAI Client (text-embedding-004)")
             except Exception as e:
                 logger.warning(f"Could not initialize GenAI client: {e}")
+                self._auth_failed = True
 
     def generate_embedding(self, text: str) -> List[float]:
         """Generates 768-dimensional normalized vector embedding for text."""
-        if self.client:
+        if self.client and not self._auth_failed:
             try:
                 response = self.client.models.embed_content(
                     model=self.model_name,
@@ -48,17 +50,25 @@ class VertexEmbeddingService:
                 if response and response.embeddings:
                     return response.embeddings[0].values
             except Exception as e:
-                logger.warning(f"Live embedding generation failed ({e}). Using deterministic fallback.")
+                err_msg = str(e).lower()
+                if "reauthentication" in err_msg or "invalid_grant" in err_msg or "credentials" in err_msg:
+                    self._auth_failed = True
+                    logger.warning("GCP ADC authentication token expired. Fast-falling back to deterministic vectors.")
+                else:
+                    logger.warning(f"Live embedding generation failed ({e}). Using deterministic fallback.")
 
         # Deterministic 768-dimensional normalized mock vector
         return self._generate_deterministic_vector(text)
 
     def generate_embeddings_batch(self, texts: List[str], max_chars_per_batch: int = 35000, max_items: int = 20) -> List[List[float]]:
         """Generates 768-dimensional embeddings for a batch of texts using high-throughput batch requests.
-        Respects Vertex AI 20,000 token budget per batch request with recursive subdivision fallback.
+        Respects Vertex AI 20,000 token budget per batch request with fast fallback when credentials require reauth.
         """
         if not texts:
             return []
+
+        if self._auth_failed or not self.client:
+            return [self._generate_deterministic_vector(t) for t in texts]
 
         # Adaptive grouping based on text length to stay well below the 20k token limit
         batches: List[List[str]] = []
@@ -82,7 +92,7 @@ class VertexEmbeddingService:
         def _embed_sub_batch(sub_batch: List[str]) -> List[List[float]]:
             if not sub_batch:
                 return []
-            if self.client:
+            if self.client and not self._auth_failed:
                 try:
                     response = self.client.models.embed_content(
                         model=self.model_name,
@@ -91,12 +101,17 @@ class VertexEmbeddingService:
                     if response and response.embeddings and len(response.embeddings) == len(sub_batch):
                         return [emb.values for emb in response.embeddings]
                 except Exception as e:
+                    err_msg = str(e).lower()
+                    if "reauthentication" in err_msg or "invalid_grant" in err_msg or "credentials" in err_msg:
+                        self._auth_failed = True
+                        logger.warning("GCP ADC authentication token expired. Fast-falling back to deterministic vectors.")
+                        return [self._generate_deterministic_vector(t) for t in sub_batch]
                     logger.warning(f"Batch embedding failed for {len(sub_batch)} items ({e}). Sub-dividing...")
                     if len(sub_batch) > 1:
                         mid = len(sub_batch) // 2
                         return _embed_sub_batch(sub_batch[:mid]) + _embed_sub_batch(sub_batch[mid:])
-            # Fallback to single-item generation
-            return [self.generate_embedding(t) for t in sub_batch]
+            # Fallback to deterministic generation
+            return [self._generate_deterministic_vector(t) for t in sub_batch]
 
         for b in batches:
             all_embeddings.extend(_embed_sub_batch(b))

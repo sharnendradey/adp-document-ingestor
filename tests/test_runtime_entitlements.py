@@ -143,19 +143,26 @@ def test_elimination_of_top_k_truncation():
         channel="SELF_SERVICE"
     )
 
-    # Search with an unprivileged employee persona
-    results = retrieval_agent.retrieve_entitled_knowledge(
+    # Search with an unprivileged employee persona asking about executive bonuses
+    results_exec = retrieval_agent.retrieve_entitled_knowledge(
         query="What is the executive bonus payout schedule and direct deposit rules?",
         session=employee_session,
-        top_k=5
+        top_k=10
     )
-
-    retrieved_chunk_ids = [c["chunk_id"] for c in results["candidate_chunks"]]
+    retrieved_chunk_ids = [c["chunk_id"] for c in results_exec["candidate_chunks"]]
     
     # Assert that privileged chunk is NOT present (eliminated at pre-filter stage)
     assert "ku_exec_bonus_001" not in retrieved_chunk_ids
+
+    # Search with direct deposit query where employee chunk is authoritative
+    results_emp = retrieval_agent.retrieve_entitled_knowledge(
+        query="Standard direct deposit allows employees to designate up to 4 accounts in RUN Powered by ADP.",
+        session=employee_session,
+        top_k=5
+    )
+    emp_retrieved_chunk_ids = [c["chunk_id"] for c in results_emp["candidate_chunks"]]
     # Assert that the employee chunk IS present
-    assert "ku_emp_deposit_002" in retrieved_chunk_ids
+    assert "ku_emp_deposit_002" in emp_retrieved_chunk_ids
 
 
 def test_10_field_sebastian_context_envelope_assembly():

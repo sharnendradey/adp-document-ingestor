@@ -15,9 +15,12 @@ echo "==================================================================="
 if [ -n "$VIRTUAL_ENV" ]; then
     PYTHON_BIN="$VIRTUAL_ENV/bin/python"
     UVICORN_BIN="$VIRTUAL_ENV/bin/uvicorn"
-elif [ -f "/Users/sharnendradey/Documents/zee5-engagement-docs/superover/venv/bin/python" ]; then
-    PYTHON_BIN="/Users/sharnendradey/Documents/zee5-engagement-docs/superover/venv/bin/python"
-    UVICORN_BIN="/Users/sharnendradey/Documents/zee5-engagement-docs/superover/venv/bin/uvicorn"
+elif [ -f "$SCRIPT_DIR/../.venv/bin/python" ]; then
+    PYTHON_BIN="$SCRIPT_DIR/../.venv/bin/python"
+    UVICORN_BIN="$SCRIPT_DIR/../.venv/bin/uvicorn"
+elif [ -f "$SCRIPT_DIR/.venv/bin/python" ]; then
+    PYTHON_BIN="$SCRIPT_DIR/.venv/bin/python"
+    UVICORN_BIN="$SCRIPT_DIR/.venv/bin/uvicorn"
 elif [ -f "venv/bin/python" ]; then
     PYTHON_BIN="venv/bin/python"
     UVICORN_BIN="venv/bin/uvicorn"

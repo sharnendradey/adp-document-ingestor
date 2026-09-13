@@ -436,6 +436,50 @@ class QuestaSpannerRepository:
                 }
         return None
 
+    def find_chunks_by_hashes(self, hashes: List[str]) -> Dict[str, Dict[str, Any]]:
+        """Batch queries Spanner to find multiple existing chunks by SHA-256 in a single query."""
+        if not hashes:
+            return {}
+        results = {}
+        unique_hashes = list(set(hashes))
+        if self.database:
+            try:
+                with self.database.snapshot() as snapshot:
+                    sql = """
+                        SELECT chunk_id, document_id, bound_document_ids, sha256_hash, chunk_index
+                        FROM knowledge_units 
+                        WHERE sha256_hash IN UNNEST(@hashes)
+                    """
+                    rows = list(snapshot.execute_sql(
+                        sql,
+                        params={"hashes": unique_hashes},
+                        param_types={"hashes": spanner.param_types.Array(spanner.param_types.STRING)}
+                    ))
+                    for r in rows:
+                        results[r[3]] = {
+                            "chunk_id": r[0],
+                            "document_id": r[1],
+                            "bound_document_ids": list(r[2]) if r[2] else [r[1]],
+                            "sha256_hash": r[3],
+                            "chunk_index": r[4]
+                        }
+            except Exception as e:
+                logger.warning(f"Could not batch check chunk hashes in live Spanner ({e}).")
+
+        # Fallback / merge with in-memory mock check
+        for cid, cdata in self._mock_chunks.items():
+            h = cdata.get("sha256_hash")
+            if h in unique_hashes and h not in results:
+                bound = cdata.get("bound_document_ids", [])
+                results[h] = {
+                    "chunk_id": cid,
+                    "document_id": cdata.get("document_id"),
+                    "bound_document_ids": list(bound) if bound else [cdata.get("document_id")],
+                    "sha256_hash": h,
+                    "chunk_index": cdata.get("chunk_index", 0)
+                }
+        return results
+
     def append_document_binding(self, chunk_id: str, new_document_id: str) -> bool:
         """Appends a new document_id to an existing chunk's bound_document_ids list without re-embedding."""
         # Update in-memory mock
@@ -472,6 +516,50 @@ class QuestaSpannerRepository:
                 return True
             except Exception as e:
                 logger.error(f"Failed appending document binding for chunk {chunk_id}: {e}")
+                return False
+        return True
+
+    def append_document_bindings_batch(self, chunk_ids: List[str], new_document_id: str) -> bool:
+        """Batch appends a new document_id to multiple existing chunks' bound_document_ids in a single transaction."""
+        if not chunk_ids:
+            return True
+        for cid in chunk_ids:
+            if cid in self._mock_chunks:
+                bound = self._mock_chunks[cid].setdefault("bound_document_ids", [])
+                if new_document_id not in bound:
+                    bound.append(new_document_id)
+
+        if self.database:
+            try:
+                def _update_txn(transaction):
+                    results = transaction.execute_sql(
+                        "SELECT chunk_id, bound_document_ids, document_id FROM knowledge_units WHERE chunk_id IN UNNEST(@cids)",
+                        params={"cids": chunk_ids},
+                        param_types={"cids": spanner.param_types.Array(spanner.param_types.STRING)}
+                    )
+                    rows = list(results)
+                    update_values = []
+                    for r in rows:
+                        cid = r[0]
+                        existing_bound = list(r[1]) if r[1] else []
+                        orig_doc = r[2]
+                        if orig_doc and orig_doc not in existing_bound:
+                            existing_bound.append(orig_doc)
+                        if new_document_id not in existing_bound:
+                            existing_bound.append(new_document_id)
+                        update_values.append([cid, existing_bound])
+                    if update_values:
+                        transaction.update(
+                            table="knowledge_units",
+                            columns=["chunk_id", "bound_document_ids"],
+                            values=update_values
+                        )
+
+                self.database.run_in_transaction(_update_txn)
+                logger.info(f"Batch appended document binding {new_document_id} to {len(chunk_ids)} existing chunks in 1 transaction.")
+                return True
+            except Exception as e:
+                logger.error(f"Failed batch appending document bindings: {e}")
                 return False
         return True
 

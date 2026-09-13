@@ -29,16 +29,19 @@ class RevisionDeduplicationManager:
         deduplicated_chunk_ids: List[str] = []
         new_blocks: List[Tuple[int, Dict[str, Any]]] = []
 
-        for idx, block in enumerate(blocks):
-            block_sha = RevisionDeduplicationManager.compute_sha256(block["text"])
-            existing = spanner_service.find_chunk_by_hash(block_sha)
+        block_hashes = [RevisionDeduplicationManager.compute_sha256(b["text"]) for b in blocks]
+        existing_chunks_map = spanner_service.find_chunks_by_hashes(block_hashes)
+
+        for idx, (block, b_hash) in enumerate(zip(blocks, block_hashes)):
+            existing = existing_chunks_map.get(b_hash)
             if existing:
-                # Unaltered chunk: Bind new document_id without re-embedding
-                spanner_service.append_document_binding(existing["chunk_id"], resolved_doc_id)
                 deduplicated_chunk_ids.append(existing["chunk_id"])
-                logger.info(f"Deduplicated unaltered chunk {existing['chunk_id'][:16]}... bound to {resolved_doc_id}")
             else:
                 new_blocks.append((idx, block))
+
+        if deduplicated_chunk_ids:
+            spanner_service.append_document_bindings_batch(deduplicated_chunk_ids, resolved_doc_id)
+            logger.info(f"Deduplicated {len(deduplicated_chunk_ids)} unaltered chunks bound to {resolved_doc_id} in 1 transaction.")
 
         return deduplicated_chunk_ids, new_blocks
 

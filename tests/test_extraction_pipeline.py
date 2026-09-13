@@ -1,7 +1,7 @@
 """Unit and Integration tests for Two-Pass Extraction Pipeline & Pydantic Validation."""
 
 import pytest
-from app.agents.tools.document_ai_tool import document_ai_tool
+from app.ingestion.layout_parser import document_ai_tool
 from app.agents.tools.gemini_extraction_tool import gemini_extraction_tool
 from app.models.dsrf_metadata import (
     GovernedKnowledgeUnitPayload,

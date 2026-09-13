@@ -61,12 +61,12 @@ class GovernedIngestionPipeline:
         })
 
         # ---------------------------------------------------------------------
-        # STAGE 1: Visual Structural Layout Extraction (Document AI)
+        # STAGE 1: Gemini Multimodal & Structural Layout Extraction (Zero Doc AI)
         # ---------------------------------------------------------------------
         await self.emit_event(job_id, "stage_started", {
             "stage_id": "layout_parsing",
-            "stage_name": "Visual Structural Layout Extraction",
-            "message": "Decomposing visual layout via Google Cloud Document AI Layout Parser..."
+            "stage_name": "Gemini Multimodal & Structural Extraction",
+            "message": "Extracting visual layout, reading order, and table matrices via Gemini & high-speed native parser..."
         })
         
         file_bytes = None
@@ -84,7 +84,7 @@ class GovernedIngestionPipeline:
 
         blocks = layout_result.get("layout_tree", [])
         toc = layout_result.get("table_of_contents", ["Overview"])
-        raw_preview = layout_result.get("raw_text_preview", "")
+        raw_preview = layout_result.get("raw_text_preview") or layout_result.get("preview_text", "")
         
         # Defensive fallback if blocks is empty but raw content exists
         if not blocks and raw_preview:
@@ -116,7 +116,8 @@ class GovernedIngestionPipeline:
             content=raw_preview,
             source_system_id=source_system_id,
             table_of_contents=toc,
-            document_title=filename
+            document_title=filename,
+            file_bytes=file_bytes
         )
         resolved_doc_id = macro_doc.document_id
 
@@ -227,9 +228,8 @@ class GovernedIngestionPipeline:
             new_texts = [b["text"] for _, b in new_blocks]
             chunk_vectors = await asyncio.to_thread(embedding_service.generate_embeddings_batch, new_texts)
 
-            for i, (idx, block) in enumerate(new_blocks):
-                chunk_payload = await asyncio.to_thread(
-                    gemini_extraction_tool.extract_chunk_payload,
+            def _extract_one(i, idx, block):
+                return gemini_extraction_tool.extract_chunk_payload(
                     document_id=resolved_doc_id,
                     chunk_index=idx,
                     chunk_text=block["text"],
@@ -238,6 +238,12 @@ class GovernedIngestionPipeline:
                     bound_document_ids=[resolved_doc_id]
                 )
 
+            extracted_payloads = await asyncio.gather(*[
+                asyncio.to_thread(_extract_one, i, idx, block)
+                for i, (idx, block) in enumerate(new_blocks)
+            ])
+
+            for chunk_payload in extracted_payloads:
                 # Layer 4 Quality Gate & Dual-Path Routing
                 if chunk_payload.extraction_confidence >= 0.88 and chunk_payload.status == "ACTIVE":
                     promoted_chunks.append(chunk_payload)

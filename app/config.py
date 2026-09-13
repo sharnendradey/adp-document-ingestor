@@ -15,12 +15,13 @@ class Settings(BaseSettings):
     APP_NAME: str = "adp_questa_agentic_service"
     AGENT_NAME: str = "adp_questa_supervisor"
 
-    # AI Models (Gemini 3.1 & Multimodal Suite from zee5-adk & multimodal-video-engine)
-    MODEL_NAME: str = "gemini-3.1-flash-lite"
-    SUPERVISOR_MODEL_NAME: str = "gemini-flash-latest"
-    INTENT_MODEL_NAME: str = "gemini-3.1-flash-lite"
-    LIVE_MODEL_NAME: str = "gemini-3.1-flash-live-preview"
+    # AI Models (Gemini Multimodal Suite on Vertex AI)
+    MODEL_NAME: str = "gemini-3.5-flash"
+    SUPERVISOR_MODEL_NAME: str = "gemini-3.1-pro-preview"
+    INTENT_MODEL_NAME: str = "gemini-3.5-flash"
+    LIVE_MODEL_NAME: str = "gemini-3.5-flash"
     EMBEDDING_MODEL_NAME: str = "text-multilingual-embedding-002"
+    GEMINI_LOCATION: str = "global"
     GEMINI_API_KEY: Optional[str] = None
 
     # Google Cloud Platform

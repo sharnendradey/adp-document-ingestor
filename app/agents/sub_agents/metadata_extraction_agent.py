@@ -6,7 +6,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from app.agents.prompts import METADATA_EXTRACTION_PROMPT
-from app.agents.tools.document_ai_tool import document_ai_tool
+from app.ingestion.layout_parser import document_ai_tool
 from app.agents.tools.gemini_extraction_tool import gemini_extraction_tool
 from app.agents.tools.verifyai_quarantine_tool import verifyai_tool
 from app.services.vertex_embedding_service import embedding_service

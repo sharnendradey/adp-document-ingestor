@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Database, FileText, Cpu, Cloud } from 'lucide-react';
+import { Search, Database, FileText, Cpu, Cloud, Sparkles } from 'lucide-react';
 
 interface NavbarProps {
   onToggleSearch: () => void;
@@ -7,80 +7,81 @@ interface NavbarProps {
   totalDocs?: number;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onToggleSearch, isSearchOpen, totalDocs = 23 }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onToggleSearch, isSearchOpen, totalDocs = 40 }) => {
   return (
-    <header className="sticky top-0 z-30 bg-space-950/85 backdrop-blur-2xl border-b border-white/10 px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16 py-3.5 flex items-center justify-between shadow-2xl">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16 py-3.5 flex items-center justify-between shadow-xs">
       {/* Brand & Identity on Left */}
       <div className="flex items-center space-x-3.5">
         <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-red-600 to-rose-600 rounded-xl blur-sm opacity-60 group-hover:opacity-100 transition duration-300" />
-          <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 via-adp-red to-adp-dark flex items-center justify-center font-black text-white text-sm shadow-md border border-white/20">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 via-adp-red to-adp-dark flex items-center justify-center font-black text-white text-sm shadow-md shadow-red-600/20">
             ADP
           </div>
         </div>
 
         <div>
           <div className="flex items-center space-x-2.5">
-            <h1 className="font-extrabold text-white text-sm md:text-base leading-tight tracking-tight">
+            <h1 className="font-extrabold text-slate-900 text-sm md:text-base leading-tight tracking-tight">
               Questa Governed Ingestion Studio
             </h1>
-            <span className="flex items-center space-x-1 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="flex items-center space-x-1 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Live Production</span>
             </span>
           </div>
-          <p className="text-[11px] text-slate-400 hidden md:block">
-            Two-Pass Layout Decomposition · Tri-View Knowledge Units · Zero-Duplication Revisions
+          <p className="text-[11px] text-slate-500 hidden md:block">
+            Gemini 3.5 Multimodal · Tri-View Knowledge Units · Cloud Spanner Zero-Parent Embeddings
           </p>
         </div>
       </div>
 
-      {/* Right Side: Cloud Telemetry Badges + THE SINGLE Search Trigger */}
+      {/* Right Side: Cloud Telemetry Badges + Search Trigger */}
       <div className="flex items-center space-x-3 text-xs">
         {/* Spanner Live Docs */}
-        <div className="hidden xl:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-space-900/80 border border-white/5 text-slate-300 shadow-sm">
-          <Database className="w-3.5 h-3.5 text-blue-400" />
-          <span className="text-[11px] text-slate-400">Cloud Spanner:</span>
-          <span className="text-emerald-400 font-bold font-mono text-[11px]">{totalDocs} Docs</span>
+        <div className="hidden xl:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 shadow-xs">
+          <Database className="w-3.5 h-3.5 text-blue-600" />
+          <span className="text-[11px] text-slate-500">Cloud Spanner:</span>
+          <span className="text-emerald-700 font-bold font-mono text-[11px]">{totalDocs} Docs</span>
         </div>
 
-        {/* Document AI */}
-        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-space-900/80 border border-white/5 text-slate-300 shadow-sm">
-          <FileText className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-[11px] text-slate-400">DocAI Layout:</span>
-          <span className="text-amber-300/90 font-mono text-[11px]">v1.6 (Active)</span>
+        {/* Gemini Engine */}
+        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 shadow-xs">
+          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+          <span className="text-[11px] text-slate-500">Multimodal:</span>
+          <span className="text-amber-700 font-bold font-mono text-[11px]">Gemini 3.5</span>
         </div>
 
         {/* Vertex AI */}
-        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-space-900/80 border border-white/5 text-slate-300 shadow-sm">
-          <Cpu className="w-3.5 h-3.5 text-purple-400" />
-          <span className="text-[11px] text-slate-400">Vertex AI:</span>
-          <span className="text-purple-300 font-bold font-mono text-[11px]">768d ScaNN</span>
+        <div className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 shadow-xs">
+          <Cpu className="w-3.5 h-3.5 text-purple-600" />
+          <span className="text-[11px] text-slate-500">Vertex AI:</span>
+          <span className="text-purple-700 font-bold font-mono text-[11px]">768d ScaNN</span>
         </div>
 
         {/* GCS */}
-        <div className="hidden 2xl:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-space-900/80 border border-white/5 text-slate-300 shadow-sm">
-          <Cloud className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-[11px] text-slate-400">GCS Bucket:</span>
-          <span className="text-cyan-300 font-bold font-mono text-[11px]">Canonical</span>
+        <div className="hidden 2xl:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 shadow-xs">
+          <Cloud className="w-3.5 h-3.5 text-cyan-600" />
+          <span className="text-[11px] text-slate-500">GCS:</span>
+          <span className="text-cyan-700 font-bold font-mono text-[11px]">Canonical</span>
         </div>
 
         {/* Vertical Divider */}
-        <div className="h-6 w-px bg-white/10 hidden sm:block" />
+        <div className="h-6 w-px bg-slate-200 hidden sm:block" />
 
-        {/* The ONLY Dedicated Search & Intelligence Trigger on the Right */}
+        {/* Dedicated Search & Intelligence Trigger on the Right */}
         <button
           onClick={onToggleSearch}
-          className={`flex items-center space-x-2.5 px-4 py-2 rounded-xl border text-xs font-bold transition-all duration-200 group cursor-pointer shadow-lg ${
+          className={`flex items-center space-x-2.5 px-4 py-2 rounded-xl border text-xs font-bold transition-all duration-200 group cursor-pointer shadow-xs ${
             isSearchOpen
-              ? 'bg-gradient-to-r from-red-600 to-adp-red text-white border-red-500/60 shadow-glow-red scale-[1.02]'
-              : 'bg-gradient-to-r from-red-600/20 via-space-900/90 to-space-900 text-white border-red-500/40 hover:border-red-500 hover:shadow-glow-red hover:bg-space-850'
+              ? 'bg-adp-red text-white border-red-600 shadow-md shadow-red-600/20'
+              : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-300 hover:border-red-400 hover:text-adp-red'
           }`}
           title="Open Search & Intelligence Copilot (⌘K)"
         >
-          <Search className={`w-3.5 h-3.5 transition-transform group-hover:scale-115 ${isSearchOpen ? 'text-white' : 'text-adp-crimson'}`} />
+          <Search className={`w-3.5 h-3.5 transition-transform group-hover:scale-110 ${isSearchOpen ? 'text-white' : 'text-adp-crimson'}`} />
           <span className="tracking-tight">Search & Intelligence</span>
-          <kbd className="hidden sm:inline-flex items-center ml-1 text-[10px] font-mono px-2 py-0.5 rounded-md bg-black/50 text-slate-200 border border-white/15 shadow-inner">
+          <kbd className={`hidden sm:inline-flex items-center ml-1 text-[10px] font-mono px-2 py-0.5 rounded-md border ${
+            isSearchOpen ? 'bg-red-800 text-white border-red-700' : 'bg-slate-100 text-slate-600 border-slate-200'
+          }`}>
             ⌘K
           </kbd>
         </button>
@@ -88,3 +89,4 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSearch, isSearchOpen, to
     </header>
   );
 };
+

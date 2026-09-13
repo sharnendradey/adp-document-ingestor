@@ -2,10 +2,23 @@
 
 from datetime import datetime, timezone
 import hashlib
+import json
+import logging
 import re
 import time
 import uuid
 from typing import Any, Dict, List, Optional, Tuple
+
+try:
+    from google import genai
+    from google.genai import types
+    HAS_GENAI = True
+except ImportError:
+    genai = None
+    types = None
+    HAS_GENAI = False
+
+logger = logging.getLogger("adp-questa.extraction.gemini")
 
 from app.models.dsrf_metadata import (
     MacroDocumentMetadata,
@@ -30,11 +43,101 @@ from app.config import settings
 
 
 class GeminiExtractionTool:
-    """Extracts macro document metadata and chunk-level attributes using constrained schema rules."""
+    """Extracts macro document metadata and chunk-level attributes using Gemini Multimodal models."""
 
     def __init__(self):
         self.model_name = settings.MODEL_NAME
         self.system_prompt = METADATA_EXTRACTION_PROMPT
+        self.client = None
+        self._cached_faq_map: Dict[str, List[Dict[str, Any]]] = {}
+        if HAS_GENAI:
+            try:
+                if settings.GEMINI_API_KEY:
+                    self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                elif settings.GCP_PROJECT_ID:
+                    loc = getattr(settings, "GEMINI_LOCATION", "global")
+                    self.client = genai.Client(
+                        vertexai=True,
+                        project=settings.GCP_PROJECT_ID,
+                        location=loc
+                    )
+            except Exception as e:
+                logger.warning(f"Could not initialize GenAI client in GeminiExtractionTool: {e}")
+
+    def analyze_document_with_gemini(
+        self,
+        content: str,
+        filename: str,
+        table_of_contents: Optional[List[str]] = None,
+        file_bytes: Optional[bytes] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Invokes Gemini Multimodal directly to analyze any document format (PDF, DOCX, XLSX, HTML, CSV)."""
+        if not self.client:
+            return None
+
+        prompt = f"""You are the enterprise knowledge architecture classifier for ADP Questa.
+Analyze the following document and return a valid JSON object matching this schema:
+{{
+  "document_title": string,
+  "document_summary": string,
+  "canonical_dsrf_domain": string (MUST BE EXACTLY ONE OF: "PAYROLL", "TAX_COMPLIANCE", "BENEFITS", "TIME_AND_ATTENDANCE", "TALENT_AND_HR", "COMMERCIAL_PLATFORM"),
+  "business_unit": string (MUST BE EXACTLY ONE OF: "majorAccounts", "nationalAccounts", "humanResourceOutsourcing", "canadaMas", "canadaNas", "canadaHro"),
+  "adp_product_family": [string] (Values from: "runPoweredByAdp", "adpWorkforceNow", "adpWorkforceNowNextGen", "adpLyric", "adpTotalSource", "adpVantage", "adpEnterprise"),
+  "product_module": string,
+  "domain_path": string,
+  "search_keywords": [string],
+  "faq_pairs": [
+    {{"question": string, "intent": string, "target_persona": string}}
+  ]
+}}
+
+Filename: {filename}
+Sections: {', '.join(table_of_contents[:10]) if table_of_contents else 'None'}
+Document Content Preview:
+{content[:12000]}
+"""
+        contents = []
+        if file_bytes and types:
+            lower_fname = filename.lower()
+            try:
+                if lower_fname.endswith(".pdf"):
+                    # For macro document metadata, take up to 15 pages for ultra-fast multimodal response
+                    pdf_payload = file_bytes
+                    try:
+                        reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+                        if len(reader.pages) > 15:
+                            writer = pypdf.PdfWriter()
+                            for i in range(15):
+                                writer.add_page(reader.pages[i])
+                            sub_io = io.BytesIO()
+                            writer.write(sub_io)
+                            pdf_payload = sub_io.getvalue()
+                    except Exception:
+                        pass
+                    contents.append(types.Part.from_bytes(data=pdf_payload, mime_type="application/pdf"))
+                elif lower_fname.endswith(".html") or lower_fname.endswith(".htm"):
+                    contents.append(types.Part.from_bytes(data=file_bytes, mime_type="text/html"))
+                elif lower_fname.endswith(".csv"):
+                    contents.append(types.Part.from_bytes(data=file_bytes, mime_type="text/plain"))
+                elif lower_fname.endswith(".txt"):
+                    contents.append(types.Part.from_bytes(data=file_bytes, mime_type="text/plain"))
+            except Exception as e:
+                logger.warning(f"Could not attach binary part for {filename}: {e}")
+        contents.append(prompt)
+
+        try:
+            res = self.client.models.generate_content(
+                model=self.model_name,
+                contents=contents,
+                config=types.GenerateContentConfig(response_mime_type="application/json")
+            )
+            if res and res.text:
+                data = json.loads(res.text)
+                logger.info(f"Gemini successfully analyzed document '{filename}': Domain={data.get('canonical_dsrf_domain')}, Title='{data.get('document_title')}'")
+                return data
+        except Exception as e:
+            logger.warning(f"Live Gemini document analysis call failed ({e}). Using heuristic extraction.")
+        return None
 
     def extract_macro_document(
         self,
@@ -43,12 +146,116 @@ class GeminiExtractionTool:
         source_system_id: str = "EKM_REPO",
         document_guid: Optional[str] = None,
         table_of_contents: Optional[List[str]] = None,
-        document_title: Optional[str] = None
+        document_title: Optional[str] = None,
+        file_bytes: Optional[bytes] = None
     ) -> MacroDocumentMetadata:
-        """Pass 1: Extracts macro document taxonomy and BU Ingress Envelope (Parent Table - NO EMBEDDINGS)."""
+        """Pass 1: Extracts macro document taxonomy and BU Ingress Envelope via Gemini Multimodal Analysis."""
         guid = document_guid or str(uuid.uuid4())
         source_ref = f"EKM::{source_system_id}::{guid}"
         raw_sha = hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+        # Try live Gemini Multimodal analysis first across any document format
+        gemini_data = self.analyze_document_with_gemini(
+            content=content,
+            filename=document_title or "document",
+            table_of_contents=table_of_contents,
+            file_bytes=file_bytes
+        )
+        if gemini_data:
+            # Cache FAQ pairs for chunk enrichment
+            if gemini_data.get("faq_pairs"):
+                self._cached_faq_map[document_id or raw_sha] = gemini_data["faq_pairs"]
+
+            # Map domain enum strictly to valid DSFDomainEnum
+            raw_domain = str(gemini_data.get("canonical_dsrf_domain") or "").upper().replace(" ", "_").replace("-", "_")
+            if "TAX" in raw_domain:
+                domain = DSFDomainEnum.TAX_COMPLIANCE
+            elif "BENEFIT" in raw_domain:
+                domain = DSFDomainEnum.BENEFITS
+            elif "TIME" in raw_domain or "ATTEND" in raw_domain:
+                domain = DSFDomainEnum.TIME_AND_ATTENDANCE
+            elif "TALENT" in raw_domain or "HR" in raw_domain or "HUMAN" in raw_domain or "HANDBOOK" in raw_domain or "POLICY" in raw_domain:
+                domain = DSFDomainEnum.TALENT_AND_HR
+            elif "COMMERCIAL" in raw_domain or "PLATFORM" in raw_domain or "SOR" in raw_domain or "ARCHITECTURE" in raw_domain or "TAXONOMY" in raw_domain:
+                domain = DSFDomainEnum.COMMERCIAL_PLATFORM
+            elif "PAYROLL" in raw_domain:
+                domain = DSFDomainEnum.PAYROLL
+            else:
+                domain = DSFDomainEnum.PAYROLL
+
+            # Map BU enum strictly to valid BusinessUnitEnum
+            raw_bu = str(gemini_data.get("business_unit") or "").lower()
+            if "national" in raw_bu or "nas" in raw_bu:
+                bu = BusinessUnitEnum.NATIONAL_ACCOUNTS
+            elif "outsourcing" in raw_bu or "hro" in raw_bu:
+                bu = BusinessUnitEnum.HUMAN_RESOURCE_OUTSOURCING
+            elif "canada_nas" in raw_bu:
+                bu = BusinessUnitEnum.CANADA_NAS
+            elif "canada_hro" in raw_bu:
+                bu = BusinessUnitEnum.CANADA_HRO
+            elif "canada" in raw_bu:
+                bu = BusinessUnitEnum.CANADA_MAS
+            else:
+                bu = BusinessUnitEnum.MAJOR_ACCOUNTS
+
+            # Map products strictly to valid ProductFamilyEnum
+            products = []
+            for p in gemini_data.get("adp_product_family", []):
+                p_str = str(p).upper()
+                if "RUN" in p_str:
+                    products.append(ProductFamilyEnum.RUN)
+                elif "LYRIC" in p_str:
+                    products.append(ProductFamilyEnum.LYRIC)
+                elif "TOTAL" in p_str:
+                    products.append(ProductFamilyEnum.TOTALSOURCE)
+                elif "VANTAGE" in p_str:
+                    products.append(ProductFamilyEnum.VANTAGE)
+                elif "ENTERPRISE" in p_str:
+                    products.append(ProductFamilyEnum.ENTERPRISE)
+                elif "NEXT" in p_str:
+                    products.append(ProductFamilyEnum.WFN_NEXT_GEN)
+                elif "WFN" in p_str or "WORKFORCE" in p_str:
+                    products.append(ProductFamilyEnum.WFN)
+            if not products:
+                products = [ProductFamilyEnum.WFN]
+
+            title = gemini_data.get("document_title") or document_title or "Governed Knowledge Document"
+            summary = gemini_data.get("document_summary") or f"Official enterprise publication: '{title}'"
+            domain_path = gemini_data.get("domain_path") or f"{domain.value}.GENERAL"
+            keywords = gemini_data.get("search_keywords") or ["Enterprise Knowledge"]
+            module = gemini_data.get("product_module") or domain.value
+
+            final_doc_id = document_id or compute_document_hash_id(
+                tenant_boundary="GLOBAL",
+                business_unit=bu.value,
+                product_families=[p.value for p in products],
+                source_reference=source_ref,
+                raw_content=content
+            )
+
+            toc = [t[:250] for t in (table_of_contents if table_of_contents else [title])]
+
+            return MacroDocumentMetadata(
+                document_id=final_doc_id,
+                document_title=title[:250],
+                source_reference=source_ref[:500],
+                content_owner_steward="ADP Knowledge Architecture Office",
+                primary_language="en-US",
+                confidentiality_classification=ConfidentialityEnum.INTERNAL,
+                business_unit=bu,
+                adp_product_family=products,
+                product_module=module[:120],
+                delivery_platform=DeliveryPlatformEnum.WEB,
+                canonical_dsrf_domain=domain,
+                domain_path=domain_path[:250],
+                tenant_boundary="GLOBAL",
+                data_plane=DataPlaneEnum.ADP_PROPRIETARY,
+                document_summary=summary,
+                table_of_contents=toc,
+                search_keywords=[k[:60] for k in keywords],
+                raw_content_sha256=raw_sha,
+                whole_doc_embedding=None
+            )
         
         # 1. Authentic Title Extraction (prioritize DC.Title, h1, markdown #, then multi-format title inference)
         extracted_title = None

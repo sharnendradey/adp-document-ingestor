@@ -33,7 +33,7 @@ const INITIAL_STAGES: WorkflowStageState[] = [
   {
     id: 'layout_parsing',
     name: 'Layout Parser',
-    subtitle: 'DocAI visual element & table extraction',
+    subtitle: 'Gemini multimodal & structural layout extraction',
     status: 'idle',
   },
   {
@@ -276,7 +276,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="ambient-bg min-h-screen text-slate-100 flex flex-col font-sans selection:bg-adp-red selection:text-white relative">
+    <div className="ambient-bg min-h-screen text-slate-800 flex flex-col font-sans selection:bg-adp-red selection:text-white relative">
       {/* Sticky Global Navbar */}
       <Navbar
         onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
@@ -287,20 +287,20 @@ export const App: React.FC = () => {
       {/* Main Content Area in Full Widescreen Landscape Mode */}
       <main className="flex-1 px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 2xl:px-16 py-6 w-full space-y-6 max-w-[2400px] mx-auto">
         {/* Architecture Hero Banner */}
-        <div className="bg-space-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-64 h-64 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-5 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-64 h-64 bg-red-50 rounded-full blur-3xl pointer-events-none" />
 
           <div className="space-y-1.5 relative z-10">
             <div className="flex items-center space-x-2.5">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-red-500/30 text-adp-crimson shadow-glow-red">
+              <div className="p-2 rounded-xl bg-red-50 border border-red-200 text-adp-red shadow-xs">
                 <Sparkles className="w-4 h-4" />
               </div>
-              <h2 className="text-lg md:text-xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-slate-400 tracking-tight">
+              <h2 className="text-lg md:text-xl font-extrabold text-slate-900 tracking-tight">
                 Questa Governed Document Ingestion & Search Engine
               </h2>
             </div>
-            <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
-              Enterprise architecture operationalizing <strong>Google Cloud Document AI Layout Parser (v1.6)</strong>, 
+            <p className="text-xs text-slate-600 max-w-3xl leading-relaxed">
+              Enterprise architecture operationalizing <strong>Gemini 3.5 Multimodal Layout Analysis</strong>, 
               Gemini 3.1 Macro DSRF Taxonomy, Structured GCS Archival, Syntactic Revision Deduplication, 
               and Cloud Spanner Two-Table Child Storage with sub-5ms ScaNN vector retrieval.
             </p>
@@ -309,16 +309,16 @@ export const App: React.FC = () => {
           {/* Top Quick Actions */}
           <div className="flex items-center space-x-3 shrink-0 relative z-10">
             {availableDocs.length > 0 && (
-              <div className="flex items-center space-x-2 bg-space-950/90 px-3 py-2 rounded-xl border border-white/10 shadow-inner">
-                <Database className="w-3.5 h-3.5 text-blue-400" />
+              <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 shadow-xs">
+                <Database className="w-3.5 h-3.5 text-blue-600" />
                 <select
                   value={selectedDocId}
                   onChange={(e) => handleDocumentSelect(e.target.value, false)}
-                  className="bg-transparent text-xs font-semibold text-slate-200 focus:outline-none cursor-pointer max-w-[200px] truncate"
+                  className="bg-transparent text-xs font-semibold text-slate-800 focus:outline-none cursor-pointer max-w-[200px] truncate"
                   title="Quick-switch active catalog document"
                 >
                   {availableDocs.map((doc) => (
-                    <option key={doc.document_id} value={doc.document_id} className="bg-space-950 text-slate-200">
+                    <option key={doc.document_id} value={doc.document_id} className="bg-white text-slate-800">
                       {doc.document_title || doc.document_id}
                     </option>
                   ))}
@@ -329,30 +329,30 @@ export const App: React.FC = () => {
             <button
               onClick={loadCatalog}
               disabled={isCatalogLoading}
-              className="p-2.5 rounded-xl bg-space-950/90 hover:bg-space-800 border border-white/10 text-slate-400 hover:text-white transition-all shadow-inner cursor-pointer"
+              className="p-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 transition-all shadow-xs cursor-pointer"
               title="Refresh catalog from Cloud Spanner"
             >
-              <RefreshCw className={`w-4 h-4 ${isCatalogLoading ? 'animate-spin text-blue-400' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isCatalogLoading ? 'animate-spin text-blue-600' : ''}`} />
             </button>
           </div>
         </div>
 
         {/* Segmented Top View Navigation Tabs */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-2">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
           <div className="flex items-center space-x-2">
             {/* Tab 1: Ingestion & Live Pipeline */}
             <button
               onClick={() => setActiveTab('ingest')}
               className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                 activeTab === 'ingest'
-                  ? 'bg-gradient-to-r from-red-600 to-adp-red text-white shadow-glow-red border border-red-500/40'
-                  : 'bg-space-900/80 text-slate-400 hover:text-slate-200 border border-white/5 hover:border-white/10'
+                  ? 'bg-adp-red text-white shadow-xs border border-red-700'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 shadow-xs'
               }`}
             >
               <FileUp className="w-4 h-4" />
               <span>Document Upload & Live Pipeline</span>
               {isStreaming && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-1" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
               )}
             </button>
 
@@ -361,13 +361,17 @@ export const App: React.FC = () => {
               onClick={() => setActiveTab('library')}
               className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                 activeTab === 'library'
-                  ? 'bg-gradient-to-r from-red-600 to-adp-red text-white shadow-glow-red border border-red-500/40'
-                  : 'bg-space-900/80 text-slate-400 hover:text-slate-200 border border-white/5 hover:border-white/10'
+                  ? 'bg-adp-red text-white shadow-xs border border-red-700'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 shadow-xs'
               }`}
             >
               <Library className="w-4 h-4" />
               <span>Uploaded Documents Library</span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-slate-300 border border-white/10">
+              <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border ${
+                activeTab === 'library'
+                  ? 'bg-red-800 text-white border-red-700'
+                  : 'bg-slate-100 text-slate-600 border-slate-200'
+              }`}>
                 {totalDocsCount}
               </span>
             </button>
@@ -378,11 +382,11 @@ export const App: React.FC = () => {
                 onClick={() => setActiveTab('inspector')}
                 className={`flex items-center space-x-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
                   activeTab === 'inspector'
-                    ? 'bg-gradient-to-r from-red-600 to-adp-red text-white shadow-glow-red border border-red-500/40'
-                    : 'bg-space-900/80 text-slate-400 hover:text-slate-200 border border-white/5 hover:border-white/10'
+                    ? 'bg-adp-red text-white shadow-xs border border-red-700'
+                    : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 shadow-xs'
                 }`}
               >
-                <Layers className="w-4 h-4 text-purple-400" />
+                <Layers className="w-4 h-4 text-purple-600" />
                 <span className="max-w-[200px] truncate">
                   Inspect: {currentDocument.document_title || currentDocument.document_id}
                 </span>
@@ -391,8 +395,8 @@ export const App: React.FC = () => {
           </div>
 
           {/* Quick Notice */}
-          <div className="hidden md:flex items-center space-x-1.5 text-[11px] text-slate-400">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="hidden md:flex items-center space-x-1.5 text-[11px] text-slate-500 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>Spanner ABAC Enforcement Active</span>
           </div>
         </div>
@@ -418,16 +422,16 @@ export const App: React.FC = () => {
 
             {/* If a document is loaded, show quick inspector access banner */}
             {currentDocument && (
-              <div className="bg-space-900/70 p-4 rounded-2xl border border-white/10 flex items-center justify-between gap-4 shadow-xl">
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 flex items-center justify-between gap-4 shadow-xs">
                 <div className="flex items-center space-x-3">
-                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <div className="p-2 rounded-xl bg-purple-50 text-purple-700 border border-purple-200">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-white">
+                    <h4 className="text-xs font-bold text-slate-900">
                       Active Document: {currentDocument.document_title || currentDocument.document_id}
                     </h4>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[11px] text-slate-500">
                       {knowledgeUnits.length} child knowledge units indexed in Cloud Spanner child table
                     </p>
                   </div>
@@ -435,7 +439,7 @@ export const App: React.FC = () => {
 
                 <button
                   onClick={() => setActiveTab('inspector')}
-                  className="px-4 py-2 rounded-xl bg-space-950 hover:bg-space-800 text-slate-200 hover:text-white border border-white/10 text-xs font-bold transition-all shadow-inner cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 text-xs font-bold transition-all shadow-xs cursor-pointer"
                 >
                   View Full Metadata & Chunks →
                 </button>
@@ -459,28 +463,28 @@ export const App: React.FC = () => {
         {activeTab === 'inspector' && currentDocument && (
           <div className="space-y-6">
             {/* Inspector Navigation Breadcrumb */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-space-950/70 px-4 py-3 rounded-xl border border-white/5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-xs">
               <div className="flex items-center space-x-2.5">
                 <button
                   onClick={() => setActiveTab('library')}
-                  className="flex items-center space-x-1 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className="flex items-center space-x-1 text-xs text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Back to Library</span>
                 </button>
-                <span className="text-slate-600">|</span>
-                <span className="text-xs font-bold text-white">
-                  Inspecting: <span className="text-slate-300 font-mono">{currentDocument.document_id}</span>
+                <span className="text-slate-300">|</span>
+                <span className="text-xs font-bold text-slate-900">
+                  Inspecting: <span className="text-slate-600 font-mono">{currentDocument.document_id}</span>
                 </span>
               </div>
 
               {availableDocs.length > 0 && (
                 <div className="flex items-center space-x-2">
-                  <span className="text-[11px] text-slate-500">Switch Document:</span>
+                  <span className="text-[11px] text-slate-500 font-medium">Switch Document:</span>
                   <select
                     value={selectedDocId}
                     onChange={(e) => handleDocumentSelect(e.target.value, false)}
-                    className="bg-space-900 border border-white/10 text-xs text-slate-200 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer max-w-[220px] truncate"
+                    className="bg-slate-50 border border-slate-200 text-xs text-slate-800 rounded-lg px-2.5 py-1 focus:outline-none cursor-pointer max-w-[220px] truncate"
                   >
                     {availableDocs.map((doc) => (
                       <option key={doc.document_id} value={doc.document_id}>
