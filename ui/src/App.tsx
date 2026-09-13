@@ -356,7 +356,7 @@ export const App: React.FC = () => {
         title="Open Search & Intelligence Copilot (⌘K)"
       >
         <Search className="w-4 h-4 group-hover:scale-110 transition-transform" />
-        <span>Ask Sebastian AI</span>
+        <span>Agent Intelligence Search</span>
         <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 border border-white/10">
           ⌘K
         </kbd>

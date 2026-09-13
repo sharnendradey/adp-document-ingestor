@@ -301,19 +301,27 @@ export const ExpandableSearchDrawer: React.FC<ExpandableSearchDrawerProps> = ({
                 </div>
               </div>
 
-              {/* Sebastian Grounded Answer Card */}
-              <div className="bg-gradient-to-br from-space-900 to-space-950 border border-red-500/20 rounded-xl p-4 space-y-3 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-adp-red/5 rounded-full blur-3xl pointer-events-none" />
+              {/* Agent Analysis Card (Grounded in Spanner Data) */}
+              <div className="bg-gradient-to-br from-space-900 to-space-950 border border-emerald-500/30 rounded-xl p-4 space-y-3 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
 
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2.5">
                     <span className="flex h-2 w-2 relative">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                     </span>
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                      Sebastian Grounded Answer
-                    </h3>
+                    <div>
+                      <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-1.5">
+                        <span>Agent Grounded Analysis</span>
+                        <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                          Cloud Spanner
+                        </span>
+                      </h3>
+                      <p className="text-[10px] text-slate-400">
+                        Synthesized directly from live Spanner knowledge units
+                      </p>
+                    </div>
                   </div>
 
                   <span
@@ -326,6 +334,7 @@ export const ExpandableSearchDrawer: React.FC<ExpandableSearchDrawerProps> = ({
                     {result.response.confidence_display} Conf
                   </span>
                 </div>
+
 
                 <div className="text-xs text-slate-200 leading-relaxed font-sans whitespace-pre-wrap select-text">
                   {result.response.answer}
