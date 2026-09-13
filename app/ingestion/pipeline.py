@@ -86,6 +86,10 @@ class GovernedIngestionPipeline:
         toc = layout_result.get("table_of_contents", ["Overview"])
         raw_preview = layout_result.get("raw_text_preview", "")
         
+        # Defensive fallback if blocks is empty but raw content exists
+        if not blocks and raw_preview:
+            blocks = [{"heading": "Overview", "text": raw_preview, "type": "paragraph"}]
+
         await self.emit_event(job_id, "log", {
             "level": "INFO",
             "stage_id": "layout_parsing",
@@ -112,7 +116,7 @@ class GovernedIngestionPipeline:
             content=raw_preview,
             source_system_id=source_system_id,
             table_of_contents=toc,
-            document_title=None
+            document_title=filename
         )
         resolved_doc_id = macro_doc.document_id
 

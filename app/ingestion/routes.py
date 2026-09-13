@@ -89,11 +89,13 @@ def list_sample_documents() -> Dict[str, Any]:
 
 @router.post("/upload")
 async def upload_document(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     document_id: Optional[str] = Form(None),
-    version: int = Form(1)
+    version: int = Form(1),
+    source_system_id: str = Form("EKM_CORE")
 ) -> Dict[str, Any]:
-    """Uploads a document to local staging area and registers a job_id for SSE tracking."""
+    """Uploads a document, immediately archives to GCS bucket staging, and initiates governed ingestion."""
     job_id = f"job_{uuid.uuid4().hex[:12]}"
     filename = file.filename or "uploaded_document"
     dest_path = os.path.join(UPLOAD_DIR, f"{job_id}_{filename}")
@@ -102,18 +104,54 @@ async def upload_document(
     with open(dest_path, "wb") as f:
         f.write(content)
 
-    # Initialize event queue
+    # Initialize event queue for live SSE streaming
     ingestion_pipeline.get_or_create_queue(job_id)
+
+    # Clean document_id if empty string
+    cleaned_doc_id = document_id.strip() if document_id and document_id.strip() else None
+
+    # 1. Immediately keep uploaded document in GCS bucket staging
+    staging_blob_key = f"staging_uploads/{job_id}/{filename}"
+    gcs_staging_uri = f"gs://{gcs_storage_service.bucket_name}/{staging_blob_key}"
+    if gcs_storage_service.client:
+        try:
+            bucket = gcs_storage_service.client.bucket(gcs_storage_service.bucket_name)
+            blob = bucket.blob(staging_blob_key)
+            blob.upload_from_string(content)
+            logger.info(f"Custom uploaded document successfully stored in GCS bucket: {gcs_staging_uri}")
+        except Exception as e:
+            logger.warning(f"Could not store custom upload in GCS staging ({e})")
+
+    # Push immediate event to the SSE queue so the client sees it as soon as connected
+    await ingestion_pipeline.emit_event(job_id, "log", {
+        "level": "INFO",
+        "stage_id": "INIT",
+        "message": f"Uploaded document '{filename}' ({len(content)} bytes) kept in GCS bucket: {gcs_staging_uri}"
+    })
+
+    # 2. Smoothly dispatch governed ingestion in background
+    background_tasks.add_task(
+        ingestion_pipeline.run_ingestion_async,
+        job_id=job_id,
+        file_path_or_content=dest_path,
+        filename=filename,
+        document_id=cleaned_doc_id,
+        source_system_id=source_system_id,
+        version=version
+    )
 
     return {
         "job_id": job_id,
         "filename": filename,
         "file_path": dest_path,
-        "document_id": document_id,
+        "gcs_uri": gcs_staging_uri,
+        "document_id": cleaned_doc_id,
         "version": version,
         "size_bytes": len(content),
+        "status": "QUEUED",
         "stream_url": f"/api/v1/ingest/stream/{job_id}"
     }
+
 
 
 @router.post("/process")

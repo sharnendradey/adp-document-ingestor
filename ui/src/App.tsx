@@ -164,6 +164,17 @@ export const App: React.FC = () => {
       if (params.file) {
         const uploadRes = await uploadDocumentFile(params.file, params.documentId, params.version);
         jobId = uploadRes.job_id;
+        if (uploadRes.gcs_uri) {
+          setLogs((prev) => [
+            ...prev,
+            {
+              timestamp: new Date().toISOString(),
+              level: 'INFO',
+              stage: 'INIT',
+              message: `Uploaded document kept in GCS bucket: ${uploadRes.gcs_uri}`,
+            },
+          ]);
+        }
       } else if (params.samplePath) {
         const triggerRes = await triggerIngestionProcess({
           file_path: params.samplePath,
@@ -252,6 +263,7 @@ export const App: React.FC = () => {
         loadDocumentDetails(event.document_id);
         setSelectedDocId(event.document_id);
         loadCatalog();
+        setActiveTab('inspector');
       }
     } else if (event.event_type === 'error') {
       setIsStreaming(false);
